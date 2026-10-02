@@ -6,7 +6,7 @@ from switchyard.models import Cost, Result, Speed, Task
 from switchyard.worker import Worker
 
 
-class HttpWorker(Worker):
+class OpenAICompatibleWorker(Worker):
     """Worker that executes tasks using an OpenAI-compatible chat endpoint."""
 
     def __init__(

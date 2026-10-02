@@ -5,7 +5,7 @@ import tomllib
 from pathlib import Path
 from typing import Any
 
-from switchyard.http_worker import HttpWorker
+from switchyard.openai_worker import OpenAICompatibleWorker
 from switchyard.models import Cost, Speed
 from switchyard.registry import WorkerRegistry
 from switchyard.worker import MockWorker
@@ -31,12 +31,12 @@ def build_registry_from_config(path: Path) -> WorkerRegistry:
     return registry
 
 
-def _build_worker(entry: Any) -> HttpWorker | MockWorker:
+def _build_worker(entry: Any) -> OpenAICompatibleWorker | MockWorker:
     if not isinstance(entry, dict):
         raise ValueError("entry must be a table")
 
     name = entry["name"]
-    kind = entry.get("kind", "http")
+    kind = entry.get("kind", "openai-compatible")
     capabilities = entry["capabilities"]
     if not isinstance(name, str) or not name.strip():
         raise ValueError("name must be a non-empty string")
@@ -55,8 +55,10 @@ def _build_worker(entry: Any) -> HttpWorker | MockWorker:
 
     if kind == "mock":
         return MockWorker(**common, response_template=entry.get("response_template"))
-    if kind != "http":
-        raise ValueError(f"unsupported kind '{kind}' (expected 'http' or 'mock')")
+    if kind != "openai-compatible":
+        raise ValueError(
+            f"unsupported kind '{kind}' (expected 'openai-compatible' or 'mock')"
+        )
 
     endpoint = entry["endpoint"]
     model = entry["model"]
@@ -78,7 +80,7 @@ def _build_worker(entry: Any) -> HttpWorker | MockWorker:
     if not isinstance(timeout, (int, float)) or isinstance(timeout, bool) or timeout <= 0:
         raise ValueError("timeout must be a positive number")
 
-    return HttpWorker(
+    return OpenAICompatibleWorker(
         **common,
         endpoint=endpoint,
         model=model,

@@ -3,7 +3,7 @@
 import pytest
 
 from switchyard.config import build_registry_from_config
-from switchyard.http_worker import HttpWorker
+from switchyard.openai_worker import OpenAICompatibleWorker
 from switchyard.models import Cost, Speed
 from switchyard.worker import MockWorker
 
@@ -15,7 +15,7 @@ def test_build_registry_from_toml(tmp_path, monkeypatch):
         """
 [[workers]]
 name = "qwen-local"
-kind = "http"
+kind = "openai-compatible"
 capabilities = ["reasoning", "analysis"]
 speed = "fast"
 cost = "free"
@@ -34,12 +34,12 @@ cost = "low"
 
     registry = build_registry_from_config(config)
 
-    http_worker = registry.get("qwen-local")
-    assert isinstance(http_worker, HttpWorker)
-    assert http_worker.capabilities == {"reasoning", "analysis"}
-    assert http_worker.speed is Speed.FAST
-    assert http_worker.cost is Cost.FREE
-    assert http_worker.api_key == "test-key"
+    openai_worker = registry.get("qwen-local")
+    assert isinstance(openai_worker, OpenAICompatibleWorker)
+    assert openai_worker.capabilities == {"reasoning", "analysis"}
+    assert openai_worker.speed is Speed.FAST
+    assert openai_worker.cost is Cost.FREE
+    assert openai_worker.api_key == "test-key"
     mock_worker = registry.get("mock-worker")
     assert isinstance(mock_worker, MockWorker)
     assert mock_worker.capabilities == {"coding"}
@@ -52,7 +52,7 @@ def test_invalid_worker_config_names_worker(tmp_path):
         """
 [[workers]]
 name = "broken-qwen"
-kind = "http"
+kind = "openai-compatible"
 capabilities = ["reasoning"]
 speed = "warp"
 cost = "free"

@@ -3,12 +3,12 @@
 import httpx
 import pytest
 
-from switchyard.http_worker import HttpWorker
+from switchyard.openai_worker import OpenAICompatibleWorker
 from switchyard.models import Task
 
 
 @pytest.mark.asyncio
-async def test_http_worker_posts_chat_completion(monkeypatch):
+async def test_openai_worker_posts_chat_completion(monkeypatch):
     requests = []
 
     async def handler(request):
@@ -25,10 +25,10 @@ async def test_http_worker_posts_chat_completion(monkeypatch):
     transport = httpx.MockTransport(handler)
     async_client = httpx.AsyncClient
     monkeypatch.setattr(
-        "switchyard.http_worker.httpx.AsyncClient",
+        "switchyard.openai_worker.httpx.AsyncClient",
         lambda **kwargs: async_client(transport=transport, **kwargs),
     )
-    worker = HttpWorker(
+    worker = OpenAICompatibleWorker(
         name="qwen-local",
         capabilities={"reasoning"},
         endpoint="http://colibri.local/v1/",
@@ -57,17 +57,17 @@ async def test_http_worker_posts_chat_completion(monkeypatch):
         httpx.Response(200, json={"choices": []}),
     ],
 )
-async def test_http_worker_returns_failure_result(monkeypatch, response):
+async def test_openai_worker_returns_failure_result(monkeypatch, response):
     async def handler(_request):
         return response
 
     transport = httpx.MockTransport(handler)
     async_client = httpx.AsyncClient
     monkeypatch.setattr(
-        "switchyard.http_worker.httpx.AsyncClient",
+        "switchyard.openai_worker.httpx.AsyncClient",
         lambda **kwargs: async_client(transport=transport, **kwargs),
     )
-    worker = HttpWorker(
+    worker = OpenAICompatibleWorker(
         name="qwen-local",
         capabilities={"reasoning"},
         endpoint="http://colibri.local/v1",

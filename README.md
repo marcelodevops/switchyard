@@ -46,7 +46,7 @@ URL, such as `http://macops.local:8000/v1`.
 ```toml
 [[workers]]
 name = "qwen-local"
-kind = "http"
+kind = "openai-compatible"
 capabilities = ["reasoning", "analysis", "summarization", "devops"]
 speed = "medium"
 cost = "free"
