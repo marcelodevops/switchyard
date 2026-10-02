@@ -174,3 +174,91 @@ def test_explainability():
     assert "speed: fast" in decision.reason
     assert "cost: medium" in decision.reason
     assert decision.eligible_workers == ["codex"]
+
+
+def test_cost_only_ignores_speed():
+    registry = WorkerRegistry()
+    registry.register(MockWorker("fast-expensive", {"coding"}, Speed.FAST, Cost.HIGH))
+    registry.register(MockWorker("slow-free", {"coding"}, Speed.SLOW, Cost.FREE))
+
+    decision = Router(registry).route(Task(prompt="Task", required_capabilities={"coding"}, prefer_cost=True))
+
+    assert decision.selected_worker_name == "slow-free"
+    assert decision.scores["slow-free"] > decision.scores["fast-expensive"]
+    assert "preference: cost" in decision.reason
+    assert "selected cheapest eligible worker" in decision.reason
+
+
+def test_speed_only_ignores_cost():
+    registry = WorkerRegistry()
+    registry.register(MockWorker("slow-free", {"coding"}, Speed.SLOW, Cost.FREE))
+    registry.register(MockWorker("fast-expensive", {"coding"}, Speed.FAST, Cost.HIGH))
+
+    decision = Router(registry).route(Task(prompt="Task", required_capabilities={"coding"}, prefer_speed=True))
+
+    assert decision.selected_worker_name == "fast-expensive"
+    assert decision.scores["fast-expensive"] > decision.scores["slow-free"]
+    assert "preference: speed" in decision.reason
+    assert "selected fastest eligible worker" in decision.reason
+
+
+@pytest.mark.parametrize(
+    ("alpha_speed", "alpha_cost", "zebra_speed", "zebra_cost"),
+    [
+        (Speed.SLOW, Cost.HIGH, Speed.FAST, Cost.FREE),
+        (Speed.SLOW, Cost.FREE, Speed.FAST, Cost.FREE),
+        (Speed.MEDIUM, Cost.HIGH, Speed.MEDIUM, Cost.FREE),
+    ],
+)
+def test_neutral_routing_ignores_speed_and_cost(alpha_speed, alpha_cost, zebra_speed, zebra_cost):
+    registry = WorkerRegistry()
+    registry.register(MockWorker("zebra", {"coding"}, zebra_speed, zebra_cost))
+    registry.register(MockWorker("alpha", {"coding"}, alpha_speed, alpha_cost))
+
+    decision = Router(registry).route(Task(prompt="Task", required_capabilities={"coding"}))
+
+    assert decision.selected_worker_name == "alpha"
+    assert decision.eligible_workers == ["alpha", "zebra"]
+    assert decision.scores == {"alpha": 0, "zebra": 0}
+    assert "preference: none" in decision.reason
+    assert "deterministic tie-break: worker name" in decision.reason
+
+
+@pytest.mark.parametrize(
+    ("prefer_speed", "prefer_cost", "alpha_speed", "alpha_cost", "zebra_speed", "zebra_cost"),
+    [
+        (True, False, Speed.FAST, Cost.HIGH, Speed.FAST, Cost.FREE),
+        (False, True, Speed.SLOW, Cost.FREE, Speed.FAST, Cost.FREE),
+        (True, True, Speed.FAST, Cost.HIGH, Speed.SLOW, Cost.LOW),
+    ],
+)
+def test_equal_preference_scores_use_name_tie_break(
+    prefer_speed, prefer_cost, alpha_speed, alpha_cost, zebra_speed, zebra_cost
+):
+    registry = WorkerRegistry()
+    registry.register(MockWorker("zebra", {"coding"}, zebra_speed, zebra_cost))
+    registry.register(MockWorker("alpha", {"coding"}, alpha_speed, alpha_cost))
+
+    decision = Router(registry).route(
+        Task(prompt="Task", required_capabilities={"coding"}, prefer_speed=prefer_speed, prefer_cost=prefer_cost)
+    )
+
+    assert decision.scores["alpha"] == decision.scores["zebra"]
+    assert decision.selected_worker_name == "alpha"
+    assert decision.eligible_workers == ["alpha", "zebra"]
+
+
+def test_both_preferences_use_equal_combined_ranking():
+    registry = WorkerRegistry()
+    registry.register(MockWorker("fast-high", {"coding"}, Speed.FAST, Cost.HIGH))
+    registry.register(MockWorker("slow-free", {"coding"}, Speed.SLOW, Cost.FREE))
+    registry.register(MockWorker("fast-low", {"coding"}, Speed.FAST, Cost.LOW))
+
+    decision = Router(registry).route(
+        Task(prompt="Task", required_capabilities={"coding"}, prefer_speed=True, prefer_cost=True)
+    )
+
+    assert decision.selected_worker_name == "fast-low"
+    assert decision.scores == {"fast-high": 3, "slow-free": 4, "fast-low": 5}
+    assert "preference: speed + cost" in decision.reason
+    assert "selected using equal combined speed/cost ranking" in decision.reason

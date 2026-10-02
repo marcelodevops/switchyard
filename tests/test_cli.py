@@ -26,9 +26,9 @@ def test_cli_run(capsys):
     exit_code = main(["run", "-c", "reasoning", "Summarize report"])
     captured = capsys.readouterr()
     assert exit_code == 0
-    assert "selected: qwen-local" in captured.out
+    assert "selected: agy" in captured.out
     assert "--- Worker Result ---" in captured.out
-    assert "Executed by qwen-local: Summarize report" in captured.out
+    assert "Executed by agy: Summarize report" in captured.out
 
 
 def test_cli_no_match(capsys):

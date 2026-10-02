@@ -113,7 +113,8 @@ def test_explainability_exposes_tradeoff(dual_worker_registry):
     decision = router.route(task)
 
     assert decision.selected_worker_name == "qwen-colibri"
-    assert "cost prioritized" in decision.reason
+    assert "preference: cost" in decision.reason
+    assert "selected cheapest eligible worker" in decision.reason
     assert "agy" in decision.reason
 
 

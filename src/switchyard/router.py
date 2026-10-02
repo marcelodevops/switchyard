@@ -1,6 +1,6 @@
-"""Deterministic, explainable scoring router for Switchyard."""
+"""Deterministic, explainable routing by capability and explicit preference."""
 
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List
 from switchyard.models import RoutingDecision, Task
 from switchyard.registry import WorkerRegistry
 from switchyard.worker import Worker
@@ -12,7 +12,7 @@ class NoEligibleWorkerError(Exception):
 
 
 class Router:
-    """Deterministic scoring router for selecting workers based on capability, speed, and cost."""
+    """Select eligible workers using only requested speed and cost preferences."""
 
     def __init__(self, registry: WorkerRegistry) -> None:
         self.registry = registry
@@ -35,17 +35,13 @@ class Router:
                 f"No available workers found satisfying required capabilities: {reqs}"
             )
 
-        # Step 2: Deterministic scoring
-        # Weights adapt to explicit task preferences
-        speed_weight = 3.0 if task.prefer_speed else 1.0
-        cost_weight = 3.0 if task.prefer_cost else 1.0
-
+        # Explicit preferences contribute equally; neutral tasks score every worker zero.
         scores: Dict[str, float] = {}
         for worker in eligible_workers:
-            speed_val = worker.speed.rank  # 1 (slow) to 3 (fast)
-            cost_savings = 3 - worker.cost.rank  # 3 (free) to 0 (high)
-            score = (speed_weight * speed_val) + (cost_weight * cost_savings)
-            scores[worker.name] = round(score, 2)
+            scores[worker.name] = (
+                (worker.speed.rank if task.prefer_speed else 0)
+                + (3 - worker.cost.rank if task.prefer_cost else 0)
+            )
 
         # Step 3: Deterministic ranking (score descending, name ascending for stable tie-breaking)
         ranked = sorted(
@@ -66,10 +62,26 @@ class Router:
             f"  speed: {selected.speed.value}",
             f"  cost: {selected.cost.value}",
         ]
-        if task.prefer_cost:
-            reason_lines.append("  preference: cost prioritized")
-        if task.prefer_speed:
-            reason_lines.append("  preference: speed prioritized")
+        if task.prefer_speed and task.prefer_cost:
+            reason_lines.extend([
+                "  preference: speed + cost",
+                "  selected using equal combined speed/cost ranking",
+            ])
+        elif task.prefer_speed:
+            reason_lines.extend([
+                "  preference: speed",
+                "  selected fastest eligible worker",
+            ])
+        elif task.prefer_cost:
+            reason_lines.extend([
+                "  preference: cost",
+                "  selected cheapest eligible worker",
+            ])
+        else:
+            reason_lines.extend([
+                "  preference: none",
+                "  deterministic tie-break: worker name",
+            ])
 
         reason_lines.append("")
         reason_lines.append("other eligible workers:")
