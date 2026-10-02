@@ -81,3 +81,31 @@ api_key_env = "COLI_API_KEY"
 
     with pytest.raises(ValueError, match="COLI_API_KEY"):
         build_registry_from_config(config)
+
+
+def test_build_registry_from_toml_with_agy_worker(tmp_path):
+    config = tmp_path / "workers.toml"
+    config.write_text(
+        """
+[[workers]]
+name = "agy"
+kind = "agy"
+capabilities = ["coding", "debugging"]
+speed = "fast"
+cost = "medium"
+bin_path = "agy"
+effort = "low"
+timeout = 45
+"""
+    )
+
+    registry = build_registry_from_config(config)
+    worker = registry.get("agy")
+    assert worker is not None
+    assert worker.name == "agy"
+    assert worker.capabilities == {"coding", "debugging"}
+    assert worker.speed is Speed.FAST
+    assert worker.cost is Cost.MEDIUM
+    assert worker.effort == "low"
+    assert worker.timeout == 45
+

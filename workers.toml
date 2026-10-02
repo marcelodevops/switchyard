@@ -1,0 +1,22 @@
+# Switchyard Real Worker Configuration: Colibrì + AGY
+
+[[workers]]
+name = "qwen-colibri"
+kind = "openai-compatible"
+capabilities = ["reasoning", "analysis", "summarization", "devops"]
+speed = "medium"
+cost = "free"
+endpoint = "http://macops.local:8000/v1"
+model = "qwen3.8-flash-next-colibri"
+api_key_env = "COLI_API_KEY"
+timeout = 90
+
+[[workers]]
+name = "agy"
+kind = "agy"
+capabilities = ["coding", "debugging", "repo-editing", "reasoning"]
+speed = "fast"
+cost = "medium"
+bin_path = "agy"
+effort = "low"
+timeout = 60

@@ -45,11 +45,12 @@ class OpenAICompatibleWorker(Worker):
                 if not isinstance(output, str):
                     raise ValueError("chat completion content was not a string")
         except (httpx.HTTPError, ValueError, KeyError, IndexError, TypeError) as exc:
+            err_msg = str(exc) or type(exc).__name__
             return Result(
-                output=f"Worker request failed: {exc}",
+                output=f"Worker request failed: {err_msg}",
                 worker_name=self.name,
                 success=False,
-                metadata={"error": str(exc), "model": self.model},
+                metadata={"error": err_msg, "model": self.model},
             )
 
         return Result(

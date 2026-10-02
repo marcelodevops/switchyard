@@ -39,13 +39,13 @@ Switchyard is NOT:
 
 ## Configuration
 
-Pass `--config PATH` before the command to load workers from a TOML file. HTTP workers
-use an OpenAI-compatible chat completion endpoint; the endpoint should be its API base
-URL, such as `http://macops.local:8000/v1`.
+Pass `--config PATH` before the command to load workers from a TOML file. Switchyard supports two real worker kinds:
+- **`openai-compatible`**: Connects via HTTP chat completions (e.g. local Colibrì/Qwen).
+- **`agy`**: Dispatches via the local Antigravity (`agy`) CLI non-interactive print mode.
 
 ```toml
 [[workers]]
-name = "qwen-local"
+name = "qwen-colibri"
 kind = "openai-compatible"
 capabilities = ["reasoning", "analysis", "summarization", "devops"]
 speed = "medium"
@@ -53,18 +53,39 @@ cost = "free"
 endpoint = "http://macops.local:8000/v1"
 model = "qwen3.8-flash-next-colibri"
 api_key_env = "COLI_API_KEY"
-timeout = 30
+timeout = 90
+
+[[workers]]
+name = "agy"
+kind = "agy"
+capabilities = ["coding", "debugging", "repo-editing", "reasoning"]
+speed = "fast"
+cost = "medium"
+bin_path = "agy"
+effort = "low"
+timeout = 60
 ```
 
 Keep API keys out of TOML files. Set the referenced environment variable before invoking
 Switchyard; `.env` files are ignored by Git but are not loaded automatically.
 
-Run the worker or list configured workers with:
+### Running & Choosing Workers
+
+Capabilities determine **who can** do the work; preferences determine **who should** do the work:
 
 ```bash
-switchyard --config workers.toml workers
-switchyard --config workers.toml run -c reasoning "Summarize this report"
+# Capabilities determine who CAN do the work
+switchyard --config workers.toml route -c coding "Fix the binary search bug"      # -> routes to agy
+switchyard --config workers.toml route -c devops "Audit Helm ingress config"      # -> routes to qwen-colibri
+
+# Preferences determine who SHOULD do the work when multiple workers are capable
+switchyard --config workers.toml route -c reasoning --prefer-cost "Compare architectures" # -> routes to qwen-colibri (free)
+switchyard --config workers.toml route -c reasoning --prefer-speed "Compare architectures" # -> routes to agy (fast)
+
+# Dispatch execution through LangGraph
+switchyard --config workers.toml run -c coding "Write a python lambda to square x"
+switchyard --config workers.toml run -c reasoning --prefer-cost "What is the capital of France?"
 ```
 
 Without `--config`, the CLI continues to use its built-in mock-worker registry.
-Failed HTTP requests return an unsuccessful worker result and cause `run` to exit non-zero.
+Failed worker executions return an unsuccessful result and cause `run` to exit non-zero.

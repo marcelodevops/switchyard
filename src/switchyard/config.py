@@ -5,8 +5,9 @@ import tomllib
 from pathlib import Path
 from typing import Any
 
-from switchyard.openai_worker import OpenAICompatibleWorker
+from switchyard.agy_worker import AgyWorker
 from switchyard.models import Cost, Speed
+from switchyard.openai_worker import OpenAICompatibleWorker
 from switchyard.registry import WorkerRegistry
 from switchyard.worker import MockWorker
 
@@ -31,7 +32,7 @@ def build_registry_from_config(path: Path) -> WorkerRegistry:
     return registry
 
 
-def _build_worker(entry: Any) -> OpenAICompatibleWorker | MockWorker:
+def _build_worker(entry: Any) -> OpenAICompatibleWorker | AgyWorker | MockWorker:
     if not isinstance(entry, dict):
         raise ValueError("entry must be a table")
 
@@ -55,9 +56,31 @@ def _build_worker(entry: Any) -> OpenAICompatibleWorker | MockWorker:
 
     if kind == "mock":
         return MockWorker(**common, response_template=entry.get("response_template"))
+
+    if kind == "agy":
+        bin_path = entry.get("bin_path", "agy")
+        if not isinstance(bin_path, str) or not bin_path.strip():
+            raise ValueError("bin_path must be a non-empty string")
+        effort = entry.get("effort")
+        if effort is not None and (not isinstance(effort, str) or not effort.strip()):
+            raise ValueError("effort must be a non-empty string")
+        model = entry.get("model")
+        if model is not None and (not isinstance(model, str) or not model.strip()):
+            raise ValueError("model must be a non-empty string")
+        timeout = entry.get("timeout", 60)
+        if not isinstance(timeout, (int, float)) or isinstance(timeout, bool) or timeout <= 0:
+            raise ValueError("timeout must be a positive number")
+        return AgyWorker(
+            **common,
+            bin_path=bin_path,
+            effort=effort,
+            model=model,
+            timeout=timeout,
+        )
+
     if kind != "openai-compatible":
         raise ValueError(
-            f"unsupported kind '{kind}' (expected 'openai-compatible' or 'mock')"
+            f"unsupported kind '{kind}' (expected 'openai-compatible', 'agy', or 'mock')"
         )
 
     endpoint = entry["endpoint"]
