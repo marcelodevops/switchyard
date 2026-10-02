@@ -109,3 +109,31 @@ timeout = 45
     assert worker.effort == "low"
     assert worker.timeout == 45
 
+
+def test_build_registry_from_toml_with_qoder_worker(tmp_path):
+    config = tmp_path / "workers.toml"
+    config.write_text(
+        """
+[[workers]]
+name = "qoder"
+kind = "qoder"
+capabilities = ["coding", "debugging", "refactoring"]
+speed = "medium"
+cost = "low"
+bin_path = "qoder"
+model = "Qwen3.8-Flash"
+timeout = 50
+"""
+    )
+
+    registry = build_registry_from_config(config)
+    worker = registry.get("qoder")
+    assert worker is not None
+    assert worker.name == "qoder"
+    assert worker.capabilities == {"coding", "debugging", "refactoring"}
+    assert worker.speed is Speed.MEDIUM
+    assert worker.cost is Cost.LOW
+    assert worker.model == "Qwen3.8-Flash"
+    assert worker.timeout == 50
+
+

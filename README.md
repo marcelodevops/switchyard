@@ -39,9 +39,10 @@ Switchyard is NOT:
 
 ## Configuration
 
-Pass `--config PATH` before the command to load workers from a TOML file. Switchyard supports two real worker kinds:
+Pass `--config PATH` before the command to load workers from a TOML file. Switchyard supports three real worker kinds:
 - **`openai-compatible`**: Connects via HTTP chat completions (e.g. local Colibrì/Qwen).
 - **`agy`**: Dispatches via the local Antigravity (`agy`) CLI non-interactive print mode.
+- **`qoder`**: Dispatches via the local Qoder (`qoder`) CLI non-interactive print mode.
 
 ```toml
 [[workers]]
@@ -64,6 +65,16 @@ cost = "medium"
 bin_path = "agy"
 effort = "low"
 timeout = 60
+
+[[workers]]
+name = "qoder"
+kind = "qoder"
+capabilities = ["coding", "debugging", "refactoring", "reasoning"]
+speed = "medium"
+cost = "low"
+bin_path = "qoder"
+model = "Qwen3.8-Flash"
+timeout = 60
 ```
 
 Keep API keys out of TOML files. Set the referenced environment variable before invoking
@@ -75,15 +86,23 @@ Capabilities determine **who can** do the work; preferences determine **who shou
 
 ```bash
 # Capabilities determine who CAN do the work
-switchyard --config workers.toml route -c coding "Fix the binary search bug"      # -> routes to agy
 switchyard --config workers.toml route -c devops "Audit Helm ingress config"      # -> routes to qwen-colibri
+switchyard --config workers.toml route -c repo-editing "Refactor module tree"     # -> routes to agy
+switchyard --config workers.toml route -c refactoring "Extract helper function"   # -> routes to qoder
 
 # Preferences determine who SHOULD do the work when multiple workers are capable
-switchyard --config workers.toml route -c reasoning --prefer-cost "Compare architectures" # -> routes to qwen-colibri (free)
+# Coding: both AGY and Qoder can do it
+switchyard --config workers.toml route -c coding --prefer-cost "Implement binary search"  # -> routes to qoder (low cost)
+switchyard --config workers.toml route -c coding --prefer-speed "Implement binary search" # -> routes to agy (fast speed)
+
+# Reasoning: all three are capable
+switchyard --config workers.toml route -c reasoning --prefer-cost "Compare architectures"  # -> routes to qwen-colibri (free)
 switchyard --config workers.toml route -c reasoning --prefer-speed "Compare architectures" # -> routes to agy (fast)
+switchyard --config workers.toml route -c reasoning "Compare architectures"                # -> routes to agy (alphabetical)
 
 # Dispatch execution through LangGraph
-switchyard --config workers.toml run -c coding "Write a python lambda to square x"
+switchyard --config workers.toml run -c coding --prefer-cost "Write a Python palindrome check function"
+switchyard --config workers.toml run -c coding --prefer-speed "Write a Python lambda to square x"
 switchyard --config workers.toml run -c reasoning --prefer-cost "What is the capital of France?"
 ```
 

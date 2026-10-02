@@ -8,6 +8,7 @@ from typing import Any
 from switchyard.agy_worker import AgyWorker
 from switchyard.models import Cost, Speed
 from switchyard.openai_worker import OpenAICompatibleWorker
+from switchyard.qoder_worker import QoderWorker
 from switchyard.registry import WorkerRegistry
 from switchyard.worker import MockWorker
 
@@ -32,7 +33,7 @@ def build_registry_from_config(path: Path) -> WorkerRegistry:
     return registry
 
 
-def _build_worker(entry: Any) -> OpenAICompatibleWorker | AgyWorker | MockWorker:
+def _build_worker(entry: Any) -> OpenAICompatibleWorker | AgyWorker | QoderWorker | MockWorker:
     if not isinstance(entry, dict):
         raise ValueError("entry must be a table")
 
@@ -78,9 +79,26 @@ def _build_worker(entry: Any) -> OpenAICompatibleWorker | AgyWorker | MockWorker
             timeout=timeout,
         )
 
+    if kind == "qoder":
+        bin_path = entry.get("bin_path", "qoder")
+        if not isinstance(bin_path, str) or not bin_path.strip():
+            raise ValueError("bin_path must be a non-empty string")
+        model = entry.get("model", "Qwen3.8-Flash")
+        if model is not None and (not isinstance(model, str) or not model.strip()):
+            raise ValueError("model must be a non-empty string")
+        timeout = entry.get("timeout", 60)
+        if not isinstance(timeout, (int, float)) or isinstance(timeout, bool) or timeout <= 0:
+            raise ValueError("timeout must be a positive number")
+        return QoderWorker(
+            **common,
+            bin_path=bin_path,
+            model=model,
+            timeout=timeout,
+        )
+
     if kind != "openai-compatible":
         raise ValueError(
-            f"unsupported kind '{kind}' (expected 'openai-compatible', 'agy', or 'mock')"
+            f"unsupported kind '{kind}' (expected 'openai-compatible', 'agy', 'qoder', or 'mock')"
         )
 
     endpoint = entry["endpoint"]

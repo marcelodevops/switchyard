@@ -1,4 +1,4 @@
-# Switchyard Real Worker Configuration: Colibrì + AGY
+# Switchyard Real Worker Configuration: Colibrì + AGY + Qoder
 
 [[workers]]
 name = "qwen-colibri"
@@ -19,4 +19,14 @@ speed = "fast"
 cost = "medium"
 bin_path = "agy"
 effort = "low"
+timeout = 60
+
+[[workers]]
+name = "qoder"
+kind = "qoder"
+capabilities = ["coding", "debugging", "refactoring", "reasoning"]
+speed = "medium"
+cost = "low"
+bin_path = "qoder"
+model = "Qwen3.8-Flash"
 timeout = 60
