@@ -41,6 +41,15 @@ request/response shape is documented here. If no endpoint is reachable, note it 
 Stage 1 against a fake server (respx / monkeypatched transport) plus a config `kind: mock`
 path so tests never need a live model.
 
+**Verified Colibrì contract:** `GET http://macops.local:8000/v1/models` returned HTTP 200
+and listed `qwen3.8-flash-next-colibri`. `POST
+http://macops.local:8000/v1/chat/completions` with a JSON body containing `model`,
+`messages` (`role` and `content`), and `temperature`, plus
+`Authorization: Bearer $COLI_API_KEY`, returned HTTP 200. The response has the
+OpenAI-compatible shape `choices[0].message.content`; the observed top-level fields were
+`id`, `object`, `created`, `model`, `choices`, and `usage`. The message also included
+`role`, `refusal`, and `reasoning_content`. No API key is stored in this document.
+
 ---
 
 ## Stage 1 — `HttpWorker` adapter (the real worker)

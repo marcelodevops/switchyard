@@ -36,3 +36,35 @@ Switchyard is NOT:
 - **Router**: Deterministic, explainable scoring engine selecting the appropriate worker.
 - **Result**: Output returned from worker execution.
 - **Graph**: Minimal LangGraph coordinating execution (`route -> dispatch`).
+
+## Configuration
+
+Pass `--config PATH` before the command to load workers from a TOML file. HTTP workers
+use an OpenAI-compatible chat completion endpoint; the endpoint should be its API base
+URL, such as `http://macops.local:8000/v1`.
+
+```toml
+[[workers]]
+name = "qwen-local"
+kind = "http"
+capabilities = ["reasoning", "analysis", "summarization", "devops"]
+speed = "medium"
+cost = "free"
+endpoint = "http://macops.local:8000/v1"
+model = "qwen3.8-flash-next-colibri"
+api_key_env = "COLI_API_KEY"
+timeout = 30
+```
+
+Keep API keys out of TOML files. Set the referenced environment variable before invoking
+Switchyard; `.env` files are ignored by Git but are not loaded automatically.
+
+Run the worker or list configured workers with:
+
+```bash
+switchyard --config workers.toml workers
+switchyard --config workers.toml run -c reasoning "Summarize this report"
+```
+
+Without `--config`, the CLI continues to use its built-in mock-worker registry.
+Failed HTTP requests return an unsuccessful worker result and cause `run` to exit non-zero.
