@@ -137,3 +137,20 @@ timeout = 50
     assert worker.timeout == 50
 
 
+def test_qoder_worker_model_is_optional_and_unset_when_omitted(tmp_path):
+    config = tmp_path / "workers.toml"
+    config.write_text(
+        """
+[[workers]]
+name = "qoder"
+kind = "qoder"
+capabilities = ["coding"]
+"""
+    )
+
+    registry = build_registry_from_config(config)
+    worker = registry.get("qoder")
+    assert worker is not None
+    assert worker.model is None
+
+

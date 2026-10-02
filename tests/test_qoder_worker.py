@@ -1,7 +1,7 @@
 """Tests for the Qoder CLI worker."""
 
 import asyncio
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from switchyard.models import Task
@@ -77,6 +77,7 @@ async def test_qoder_worker_handles_process_failure(monkeypatch):
     assert result.worker_name == "qoder"
     assert "Worker request failed" in result.output
     assert result.metadata["error"]
+    assert "model" not in result.metadata
 
 
 @pytest.mark.asyncio
@@ -98,10 +99,17 @@ async def test_qoder_worker_handles_is_error_payload(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_qoder_worker_handles_timeout(monkeypatch):
+async def test_qoder_worker_timeout_kills_process(monkeypatch):
+    proc = AsyncMock()
+    proc.kill = MagicMock()
+
+    async def hang():
+        await asyncio.Event().wait()
+
+    proc.communicate.side_effect = hang
+    proc.wait.return_value = -9
+
     async def mock_subprocess_exec(*cmd, **kwargs):
-        proc = AsyncMock()
-        proc.communicate.side_effect = asyncio.TimeoutError()
         return proc
 
     monkeypatch.setattr("asyncio.create_subprocess_exec", mock_subprocess_exec)
@@ -111,7 +119,30 @@ async def test_qoder_worker_handles_timeout(monkeypatch):
 
     assert result.success is False
     assert result.worker_name == "qoder"
-    assert "Worker request failed" in result.output
+    assert "timed out" in result.metadata["error"]
+    assert proc.kill.called
+    proc.wait.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_qoder_worker_omits_model_flag_when_unset(monkeypatch):
+    recorded_cmd = []
+
+    async def mock_subprocess_exec(*cmd, **kwargs):
+        recorded_cmd.extend(cmd)
+        return DummyProcess(
+            stdout=b'{"type":"result","subtype":"success","result":"Qoder default-model answer"}',
+            returncode=0,
+        )
+
+    monkeypatch.setattr("asyncio.create_subprocess_exec", mock_subprocess_exec)
+
+    worker = QoderWorker(name="qoder", capabilities={"coding"})
+    result = await worker.execute(Task(prompt="Question"))
+
+    assert result.success is True
+    assert "--model" not in recorded_cmd
+    assert "model" not in result.metadata
 
 
 @pytest.mark.asyncio

@@ -21,7 +21,7 @@ class QoderWorker(Worker):
         available: bool = True,
         timeout: float = 60.0,
         bin_path: str = "qoder",
-        model: str | None = "Qwen3.8-Flash",
+        model: str | None = None,
     ) -> None:
         super().__init__(name, capabilities, speed, cost, available)
         self.timeout = timeout
@@ -47,15 +47,20 @@ class QoderWorker(Worker):
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
-            stdout_bytes, stderr_bytes = await asyncio.wait_for(
-                process.communicate(), timeout=self.timeout
-            )
+            try:
+                stdout_bytes, stderr_bytes = await asyncio.wait_for(
+                    process.communicate(), timeout=self.timeout
+                )
+            except asyncio.TimeoutError:
+                process.kill()
+                await process.wait()
+                raise RuntimeError(f"{resolved_bin} timed out after {self.timeout} seconds")
             stdout = stdout_bytes.decode().strip()
             stderr = stderr_bytes.decode().strip()
 
             if process.returncode != 0:
                 raise RuntimeError(
-                    f"qoder exited with code {process.returncode}: {stderr or stdout}"
+                    f"{resolved_bin} exited with code {process.returncode}: {stderr or stdout}"
                 )
 
             metadata: dict[str, Any] = {}
@@ -79,11 +84,14 @@ class QoderWorker(Worker):
                 output = stdout
 
         except (asyncio.TimeoutError, RuntimeError, ValueError, OSError) as exc:
+            error_metadata: dict[str, Any] = {"error": str(exc)}
+            if self.model:
+                error_metadata["model"] = self.model
             return Result(
                 output=f"Worker request failed: {exc}",
                 worker_name=self.name,
                 success=False,
-                metadata={"error": str(exc), "model": self.model},
+                metadata=error_metadata,
             )
 
         return Result(

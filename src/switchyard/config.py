@@ -83,7 +83,7 @@ def _build_worker(entry: Any) -> OpenAICompatibleWorker | AgyWorker | QoderWorke
         bin_path = entry.get("bin_path", "qoder")
         if not isinstance(bin_path, str) or not bin_path.strip():
             raise ValueError("bin_path must be a non-empty string")
-        model = entry.get("model", "Qwen3.8-Flash")
+        model = entry.get("model")
         if model is not None and (not isinstance(model, str) or not model.strip()):
             raise ValueError("model must be a non-empty string")
         timeout = entry.get("timeout", 60)
