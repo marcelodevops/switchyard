@@ -44,15 +44,20 @@ class AgyWorker(Worker):
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
-            stdout_bytes, stderr_bytes = await asyncio.wait_for(
-                process.communicate(), timeout=self.timeout
-            )
+            try:
+                stdout_bytes, stderr_bytes = await asyncio.wait_for(
+                    process.communicate(), timeout=self.timeout
+                )
+            except asyncio.TimeoutError:
+                process.kill()
+                await process.wait()
+                raise RuntimeError(f"{resolved_bin} timed out after {self.timeout} seconds")
             stdout = stdout_bytes.decode().strip()
             stderr = stderr_bytes.decode().strip()
 
             if process.returncode != 0:
                 raise RuntimeError(
-                    f"agy exited with code {process.returncode}: {stderr or stdout}"
+                    f"{resolved_bin} exited with code {process.returncode}: {stderr or stdout}"
                 )
 
             metadata: dict[str, Any] = {}

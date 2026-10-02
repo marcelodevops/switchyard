@@ -1,7 +1,7 @@
 """Tests for the AGY CLI worker."""
 
 import asyncio
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from switchyard.agy_worker import AgyWorker
@@ -77,10 +77,17 @@ async def test_agy_worker_handles_failure(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_agy_worker_handles_timeout(monkeypatch):
+async def test_agy_worker_timeout_kills_process(monkeypatch):
+    proc = AsyncMock()
+    proc.kill = MagicMock()
+
+    async def hang():
+        await asyncio.Event().wait()
+
+    proc.communicate.side_effect = hang
+    proc.wait.return_value = -9
+
     async def mock_subprocess_exec(*cmd, **kwargs):
-        proc = AsyncMock()
-        proc.communicate.side_effect = asyncio.TimeoutError()
         return proc
 
     monkeypatch.setattr("asyncio.create_subprocess_exec", mock_subprocess_exec)
@@ -95,7 +102,9 @@ async def test_agy_worker_handles_timeout(monkeypatch):
 
     assert result.success is False
     assert result.worker_name == "agy"
-    assert "Worker request failed" in result.output
+    assert "timed out" in result.metadata["error"]
+    assert proc.kill.called
+    proc.wait.assert_awaited_once()
 
 
 @pytest.mark.asyncio
