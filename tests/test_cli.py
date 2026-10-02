@@ -36,3 +36,24 @@ def test_cli_no_match(capsys):
     captured = capsys.readouterr()
     assert exit_code == 1
     assert "No available workers found" in captured.err
+
+
+def test_cli_workers_from_config(tmp_path, capsys):
+    config = tmp_path / "workers.toml"
+    config.write_text(
+        """
+[[workers]]
+name = "configured-qwen"
+kind = "mock"
+capabilities = ["reasoning"]
+speed = "medium"
+cost = "free"
+"""
+    )
+
+    exit_code = main(["--config", str(config), "workers"])
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "configured-qwen" in captured.out
+    assert "codex" not in captured.out

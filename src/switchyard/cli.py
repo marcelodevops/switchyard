@@ -3,8 +3,10 @@
 import argparse
 import asyncio
 import sys
+from pathlib import Path
 from typing import List, Optional
 
+from switchyard.config import build_registry_from_config
 from switchyard.graph import Switchyard
 from switchyard.models import Cost, Speed, Task
 from switchyard.registry import WorkerRegistry
@@ -91,7 +93,8 @@ async def _run_task(registry: WorkerRegistry, task: Task) -> int:
         if res:
             print(f"Worker : {res.worker_name}")
             print(f"Output : {res.output}")
-        return 0
+            return 0 if res.success else 1
+        return 1
     except NoEligibleWorkerError as e:
         print(f"Error: {e}", file=sys.stderr)
         return 1
@@ -113,6 +116,11 @@ def create_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="switchyard",
         description="Switchyard: Deterministic AI agent routing and dispatch",
+    )
+    parser.add_argument(
+        "--config",
+        type=Path,
+        help="TOML file declaring the worker registry",
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -168,7 +176,15 @@ def main(argv: Optional[List[str]] = None) -> int:
     """Main CLI entrypoint."""
     parser = create_parser()
     args = parser.parse_args(argv)
-    registry = build_default_registry()
+    try:
+        registry = (
+            build_registry_from_config(args.config)
+            if args.config
+            else build_default_registry()
+        )
+    except (OSError, ValueError) as exc:
+        print(f"Error loading worker config: {exc}", file=sys.stderr)
+        return 1
 
     if args.command == "workers":
         return cmd_workers(registry, args)
