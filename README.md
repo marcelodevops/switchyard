@@ -1,5 +1,31 @@
 # Switchyard
 
+## Local process inspection
+
+The transport-independent, read-only capability is callable directly from Python:
+
+```python
+from switchyard.processes import inspect_process, list_processes
+
+matches = list_processes(command_contains="qwen38")
+records = [process.model_dump() for process in matches]
+record = inspect_process(pid=123).model_dump()
+```
+
+`ProcessInfo` contains `pid`, `ppid`, `state`, `cpu_percent`, `memory_percent`,
+`rss_kib` (KiB), `elapsed` (the OS elapsed-time text), and `command` (command line).
+Filtering is a case-sensitive literal substring, not a regex or shell expression.
+An empty match list is valid; a missing PID raises `ProcessNotFoundError`.
+Command failures, timeouts, and malformed output raise `ProcessInspectionError`;
+invalid arguments raise `ValueError`.
+
+V1 uses the local macOS `/bin/ps` with fixed arguments and a five-second timeout.
+It does not contact `macops.local`; deploy the capability there to inspect that host.
+Metrics are transient OS snapshots, not live monitoring; processes can exit or PIDs
+can be reused after inspection. Command lines can contain sensitive arguments, so
+treat returned records accordingly. No signals, process mutation, arbitrary command
+execution, remote execution, agent reasoning, or ChatGPT transport are implemented.
+
 ## Sacred Core
 
 Switchyard exists to do exactly this:
