@@ -10,6 +10,7 @@ import httpx
 import pytest
 
 from switchyard.agy_worker import AgyWorker
+from switchyard.copilot_worker import CopilotWorker
 from switchyard.graph import Switchyard
 from switchyard.models import Cost, Speed, Task
 from switchyard.openai_worker import OpenAICompatibleWorker
@@ -134,6 +135,24 @@ def test_multi_capability_strict_match(three_worker_registry):
     impossible = Task(prompt="CI coding script", required_capabilities={"devops", "coding"})
     with pytest.raises(NoEligibleWorkerError):
         router.route(impossible)
+
+
+def test_copilot_is_eligible_without_special_case(three_worker_registry):
+    three_worker_registry.register(
+        CopilotWorker(
+            name="copilot",
+            capabilities={"coding", "debugging", "repo-editing", "quick-edits"},
+            speed=Speed.MEDIUM,
+            cost=Cost.MEDIUM,
+        )
+    )
+
+    decision = Router(three_worker_registry).route(
+        Task(prompt="Fix bug", required_capabilities={"coding", "debugging"})
+    )
+
+    assert set(decision.eligible_workers) == {"agy", "copilot", "qoder"}
+    assert decision.selected_worker_name == "agy"
 
 
 @pytest.mark.asyncio

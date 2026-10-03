@@ -1,4 +1,4 @@
-# Switchyard Real Worker Configuration: Colibrì + AGY + Qoder
+# Switchyard Real Worker Configuration: Colibrì + AGY + Qoder + Copilot
 
 [[workers]]
 name = "qwen-colibri"
@@ -30,3 +30,13 @@ cost = "low"
 bin_path = "qoder"
 model = "Qwen3.8-Flash"
 timeout = 60
+
+[[workers]]
+name = "copilot"
+kind = "copilot"
+capabilities = ["coding", "debugging", "repo-editing", "quick-edits"]
+speed = "medium"
+cost = "medium"
+bin_path = "copilot"
+timeout = 120
+# Copilot runs non-interactively with auto-approved tools in its permitted workspace.

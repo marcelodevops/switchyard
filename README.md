@@ -39,10 +39,11 @@ Switchyard is NOT:
 
 ## Configuration
 
-Pass `--config PATH` before the command to load workers from a TOML file. Switchyard supports three real worker kinds:
+Pass `--config PATH` before the command to load workers from a TOML file. Switchyard supports four real worker kinds:
 - **`openai-compatible`**: Connects via HTTP chat completions (e.g. local Colibrì/Qwen).
 - **`agy`**: Dispatches via the local Antigravity (`agy`) CLI non-interactive print mode.
 - **`qoder`**: Dispatches via the local Qoder (`qoder`) CLI non-interactive print mode.
+- **`copilot`**: Dispatches via GitHub Copilot CLI non-interactive prompt mode.
 
 ```toml
 [[workers]]
@@ -75,10 +76,24 @@ cost = "low"
 bin_path = "qoder"
 model = "Qwen3.8-Flash"
 timeout = 60
+
+[[workers]]
+name = "copilot"
+kind = "copilot"
+capabilities = ["coding", "debugging", "repo-editing", "quick-edits"]
+speed = "medium"
+cost = "medium"
+bin_path = "copilot"
+timeout = 120
 ```
 
 Keep API keys out of TOML files. Set the referenced environment variable before invoking
 Switchyard; `.env` files are ignored by Git but are not loaded automatically.
+Copilot must be installed and signed in. Its non-interactive mode uses `--allow-all-tools`:
+tools may execute without confirmation inside the CLI's permitted workspace. Switchyard
+does not enable unrestricted path or URL access. `model` is optional for Copilot; when
+omitted, its own default applies. The declared medium speed and cost are conservative
+estimates for a CLI session with metered AI usage, not measured guarantees.
 
 ### Running & Choosing Workers
 
@@ -91,11 +106,11 @@ switchyard --config workers.toml route -c repo-editing "Refactor module tree"   
 switchyard --config workers.toml route -c refactoring "Extract helper function"   # -> routes to qoder
 
 # Preferences determine who SHOULD do the work when multiple workers are capable
-# Coding: both AGY and Qoder can do it
+# Coding: AGY, Qoder, and Copilot can do it
 switchyard --config workers.toml route -c coding --prefer-cost "Implement binary search"  # -> routes to qoder (low cost)
 switchyard --config workers.toml route -c coding --prefer-speed "Implement binary search" # -> routes to agy (fast speed)
 
-# Reasoning: all three are capable
+# Reasoning: AGY, Qoder, and Colibrì are capable
 switchyard --config workers.toml route -c reasoning --prefer-cost "Compare architectures"  # -> routes to qwen-colibri (free)
 switchyard --config workers.toml route -c reasoning --prefer-speed "Compare architectures" # -> routes to agy (fast)
 switchyard --config workers.toml route -c reasoning "Compare architectures"                # -> routes to agy (alphabetical)

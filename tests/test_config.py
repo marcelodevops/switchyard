@@ -154,3 +154,46 @@ capabilities = ["coding"]
     assert worker.model is None
 
 
+def test_build_registry_with_copilot_worker(tmp_path):
+    from switchyard.copilot_worker import CopilotWorker
+
+    config = tmp_path / "workers.toml"
+    config.write_text(
+        """
+[[workers]]
+name = "copilot"
+kind = "copilot"
+capabilities = ["coding", "debugging", "repo-editing", "quick-edits"]
+speed = "medium"
+cost = "medium"
+bin_path = "copilot"
+timeout = 120
+"""
+    )
+
+    worker = build_registry_from_config(config).get("copilot")
+
+    assert isinstance(worker, CopilotWorker)
+    assert worker.capabilities == {"coding", "debugging", "repo-editing", "quick-edits"}
+    assert worker.speed is Speed.MEDIUM
+    assert worker.cost is Cost.MEDIUM
+    assert worker.bin_path == "copilot"
+    assert worker.timeout == 120
+    assert worker.model is None
+
+
+def test_copilot_config_rejects_invalid_timeout(tmp_path):
+    config = tmp_path / "workers.toml"
+    config.write_text(
+        """
+[[workers]]
+name = "copilot"
+kind = "copilot"
+capabilities = ["coding"]
+timeout = 0
+"""
+    )
+
+    with pytest.raises(ValueError, match="invalid worker 'copilot': timeout"):
+        build_registry_from_config(config)
+
