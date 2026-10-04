@@ -20,9 +20,13 @@ dev = [
     "pytest>=8.0.0",
     "pytest-asyncio>=0.23.0",
 ]
+tools = [
+    "mcp>=2.0.0",
+]
 
 [project.scripts]
 switchyard = "switchyard.cli:main"
+eiren-tools = "switchyard.eiren_tools:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/switchyard"]

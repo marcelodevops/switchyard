@@ -26,6 +26,32 @@ can be reused after inspection. Command lines can contain sensitive arguments, s
 treat returned records accordingly. No signals, process mutation, arbitrary command
 execution, remote execution, agent reasoning, or ChatGPT transport are implemented.
 
+## Eiren Tools (local MCP server)
+
+`switchyard.eiren_tools` exposes exactly one external tool, `process_list`, over
+MCP stdio as a thin adapter over `list_processes()`. Install with
+`pip install -e ".[tools]"` and register it in `~/.codex/config.toml` (shared by
+ChatGPT Desktop, the Codex CLI, and the IDE extension):
+
+```toml
+[mcp_servers.eiren-tools]
+command = "/path/to/venv/bin/python"
+args = ["-m", "switchyard.eiren_tools"]
+```
+
+Enable it in ChatGPT Desktop under Settings → MCP servers and start a new chat;
+tools from a just-added server may not appear in existing conversations.
+
+Security boundary: read-only (`readOnlyHint: true`), the only input is an optional
+literal `command_contains` substring, and there is no shell, executable, config,
+worker, model, or prompt parameter. Process command lines are sanitized before
+crossing the MCP boundary to reduce accidental credential exposure
+(`--api-key VALUE` becomes `--api-key [REDACTED]`); the internal
+`switchyard.processes` primitive still returns raw command lines. Tool output is
+data, not instructions. Smoke
+test: `python -m switchyard.eiren_tools` answered by an MCP client `list_tools()`
+must return `['process_list']`.
+
 ## Sacred Core
 
 Switchyard exists to do exactly this:
