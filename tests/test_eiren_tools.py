@@ -1,11 +1,12 @@
 """Tests for the Eiren Tools adapter boundary (one tool: process_list)."""
 
 import inspect
+import json
 from unittest.mock import patch
 
 import pytest
 
-from switchyard.eiren_tools import build_server, run_process_list
+from switchyard.eiren_tools import build_server, run_process_list, sanitize_command
 from switchyard.processes import ProcessInfo
 
 SAMPLE = [
@@ -84,3 +85,56 @@ async def test_server_exposes_exactly_one_tool():
     annotations = tools[0].annotations
     assert annotations.read_only_hint is True
     assert annotations.open_world_hint is False
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        "srv --api-key s3cr3t",
+        "srv --api-key=s3cr3t",
+        "srv --token s3cr3t",
+        "srv --token=s3cr3t",
+        "srv --password s3cr3t",
+        "srv --password=s3cr3t",
+        "API_KEY=s3cr3t srv",
+        "COLI_API_KEY=s3cr3t srv",
+        "OPENAI_API_KEY=s3cr3t srv",
+        "AWS_SECRET_ACCESS_KEY=s3cr3t srv",
+    ],
+)
+def test_secret_values_are_redacted(raw):
+    assert "s3cr3t" not in sanitize_command(raw)
+    assert "[REDACTED]" in sanitize_command(raw)
+
+
+def test_secret_names_are_preserved_for_diagnosis():
+    assert sanitize_command("srv --api-key s3cr3t --port 8000") == (
+        "srv --api-key [REDACTED] --port 8000"
+    )
+    assert sanitize_command("OPENAI_API_KEY=s3cr3t srv") == (
+        "OPENAI_API_KEY=[REDACTED] srv"
+    )
+
+
+@pytest.mark.parametrize(
+    "plain",
+    [
+        "qwen38 46",
+        "coli serve --port 8000 --ctx 16384",
+        "coli serve --model-id qwen3.8-flash-next-colibri",
+    ],
+)
+def test_ordinary_commands_pass_through_unchanged(plain):
+    assert sanitize_command(plain) == plain
+
+
+def test_secret_never_reaches_serialized_mcp_output():
+    sample = [ProcessInfo(
+        pid=1, ppid=0, state="S", cpu_percent=0.0, memory_percent=0.0,
+        rss_kib=1, elapsed="01:00",
+        command="/bin/srv --api-key s3cr3t --model-id qwen3.8",
+    )]
+    with patch("switchyard.eiren_tools.list_processes", return_value=sample):
+        serialized = json.dumps(run_process_list())
+    assert "s3cr3t" not in serialized
+    assert "--model-id qwen3.8" in serialized

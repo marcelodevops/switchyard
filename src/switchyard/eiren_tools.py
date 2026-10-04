@@ -2,7 +2,9 @@
 
 Exposes exactly one tool. Security boundary (Mission 08): no shell, no
 filesystem access, no Switchyard dispatch, no request-provided executables
-or config paths. All output is data, never instructions.
+or config paths. All output is data, never instructions. Command lines are
+sanitized here, at the point where local data enters the external LLM
+context; the internal switchyard.processes primitive stays raw.
 
 Run as a stdio MCP server (declared in ~/.codex/config.toml under
 [mcp_servers.eiren-tools]):
@@ -10,19 +12,51 @@ Run as a stdio MCP server (declared in ~/.codex/config.toml under
     python -m switchyard.eiren_tools
 """
 
+import re
+
 from switchyard.processes import list_processes
+
+_REDACTED = "[REDACTED]"
+_SECRET_NAME = re.compile(
+    r"api[_-]?key|token|password|passwd|secret|credential|authoriz(?:ation|e)",
+    re.IGNORECASE,
+)
+
+
+def sanitize_command(command: str) -> str:
+    """Redact values of secret-bearing argv tokens, keep the rest readable."""
+    out = []
+    redact_next = False
+    for token in command.split(" "):
+        if redact_next:
+            out.append(_REDACTED)
+            redact_next = False
+            continue
+        name, separator, _ = token.partition("=")
+        if _SECRET_NAME.search(name):
+            out.append(f"{name}={_REDACTED}" if separator else name)
+            redact_next = not separator
+            continue
+        out.append(token)
+    return " ".join(out)
 
 
 def run_process_list(command_contains: str | None = None) -> dict:
     """Typed process records from the local machine, filtered literally.
 
+    Command lines are sanitized for secret values before serialization.
     Raises ValueError for malformed input and ProcessInspectionError for
     OS-level failures; the MCP layer surfaces both as controlled tool errors.
     """
     if command_contains is not None and not isinstance(command_contains, str):
         raise ValueError("command_contains must be a string")
     processes = list_processes(command_contains)
-    return {"processes": [process.model_dump() for process in processes]}
+    return {
+        "processes": [
+            {**process.model_dump(), "command": sanitize_command(process.command)}
+            for process in processes
+        ]
+    }
 
 
 def build_server():

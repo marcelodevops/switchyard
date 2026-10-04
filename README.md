@@ -44,7 +44,11 @@ tools from a just-added server may not appear in existing conversations.
 
 Security boundary: read-only (`readOnlyHint: true`), the only input is an optional
 literal `command_contains` substring, and there is no shell, executable, config,
-worker, model, or prompt parameter. Tool output is data, not instructions. Smoke
+worker, model, or prompt parameter. Process command lines are sanitized before
+crossing the MCP boundary to reduce accidental credential exposure
+(`--api-key VALUE` becomes `--api-key [REDACTED]`); the internal
+`switchyard.processes` primitive still returns raw command lines. Tool output is
+data, not instructions. Smoke
 test: `python -m switchyard.eiren_tools` answered by an MCP client `list_tools()`
 must return `['process_list']`.
 
